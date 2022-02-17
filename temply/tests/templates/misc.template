@@ -1,0 +1,54 @@
+{{ name@{:?} }}
+
+Text text abc 123...{}[]\\\\#
+    - 1
+    - 2
+    * 3
+
+{% scope %}
+    {% let my_opt = Some(33) %}
+    {% match my_opt %}
+        {% where Some(x) if x > 42 %}
+            {{x}} is greater than 42
+        {% endwhere %}
+        {% where Some(x) %}
+            {{x}} is NOT greater than 42
+        {% endwhere %}
+        {% where _ %}
+            There is no value
+        {% endwhere %}
+    {% endmatch %}
+{% endscope %}
+
+{% scope %}
+{% let q = 5 %}
+{% let q = 12 %}
+
+{% for i in 0..self.count() %}
+Key: {{i}}
+Value: {{i * i}}
+{% endfor %}
+
+{% for i in 0..q %} Test:{{i}}{% endfor %}
+{% endscope %}
+
+
+
+{% if self.name == "World" %}
+    Hello World!
+{% else %}
+     Hello Other!
+{% endif %}
+
+{# Comment #}
+
+{% if self.count() > 3 %}
+    Count is greater than 3
+    {% let q = 42 %}{{ q }}
+{% else if true %}
+    True!
+{% else %}
+    Unreachable
+{% endif %}
+
+

@@ -1,0 +1,18 @@
+[package]
+name = "temply"
+version = "0.1.0"
+authors = ["Jannik Obermann <jannik.obermann@gmail.com>"]
+edition = "2021"
+rust-version = "1.56"
+description = "Simple, opinionated template engine"
+repository = "https://github.com/jannik4/temply"
+license = "MIT OR Apache-2.0"
+keywords = ["template", "compile-time"]
+categories = ["template-engine"]
+
+[features]
+default = ["derive"]
+derive = ["temply-derive"]
+
+[dependencies]
+temply-derive = { path = "../temply-derive", version = "0.1.0", optional = true }
