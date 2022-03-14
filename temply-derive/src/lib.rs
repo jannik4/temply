@@ -3,6 +3,7 @@
 mod generator;
 mod lexer;
 mod parser;
+mod ws;
 
 use proc_macro2::TokenStream;
 use std::env;
@@ -45,10 +46,12 @@ pub fn derive_template(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 
     // Lex and parse
     let tokens = lexer::lex(&source);
-    let ast = match parser::parse(&source, &tokens) {
+    let mut ast = match parser::parse(&source, &tokens) {
         Ok(ast) => ast,
         Err(error) => panic!("failed to parse template: {}", error.format(&source)),
     };
+
+    ws::trim(&mut ast);
 
     // Generate
     generator::generate(&name, &data, &generics, path.as_deref(), ast).into()

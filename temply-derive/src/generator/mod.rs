@@ -76,9 +76,12 @@ fn generate_ast(ast: ast::Ast<'_>) -> TokenStream {
 
 fn generate_item(item: ast::Item<'_>) -> TokenStream {
     match item {
-        ast::Item::Text(text) => quote! {
-            ::std::write!(__buffer, "{}", #text)?;
-        },
+        ast::Item::Text(text) => {
+            let text = text_to_string(text);
+            quote! {
+                ::std::write!(__buffer, "{}", #text)?;
+            }
+        }
         ast::Item::Comment(_) => quote! {},
         ast::Item::Expr(expr, format) => {
             let expr = expr.parse::<TokenStream>().unwrap();
@@ -98,18 +101,21 @@ fn generate_item(item: ast::Item<'_>) -> TokenStream {
             let for_ = for_.parse::<TokenStream>().unwrap();
             let body = generate_ast(body);
             match pre {
-                Some(pre) => quote! {
-                    {
-                        let mut __first = true;
-                        #for_ {
-                            if !__first {
-                                ::std::write!(__buffer, "{}", #pre)?;
+                Some(pre_text) => {
+                    let pre_text = text_to_string(pre_text);
+                    quote! {
+                        {
+                            let mut __first = true;
+                            #for_ {
+                                if !__first {
+                                    ::std::write!(__buffer, "{}", #pre_text)?;
+                                }
+                                __first = false;
+                                #body
                             }
-                            __first = false;
-                            #body
                         }
                     }
-                },
+                }
                 None => quote! { #for_ { #body } },
             }
         }
@@ -193,4 +199,14 @@ fn generate_item(item: ast::Item<'_>) -> TokenStream {
             }
         }
     }
+}
+
+fn text_to_string(text: ast::Text<'_>) -> String {
+    let mut buffer = String::new();
+    for line in text.lines {
+        buffer += line.content;
+        buffer += line.new_line;
+    }
+    buffer += text.trailing;
+    buffer
 }

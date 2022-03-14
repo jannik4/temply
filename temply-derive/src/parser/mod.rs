@@ -79,7 +79,7 @@ pub fn parse<'s>(
     source: &'s str,
     tokens: &[Spanned<Token>],
 ) -> std::result::Result<ast::Ast<'s>, Error> {
-    let (tokens, (_, ast)) = parse_ast(source, tokens, false)?;
+    let (tokens, ast) = parse_ast(source, tokens)?;
 
     if tokens.is_empty() {
         Ok(ast)
@@ -91,8 +91,7 @@ pub fn parse<'s>(
 fn parse_ast<'s, 't>(
     source: &'s str,
     mut tokens: &'t [Spanned<Token>],
-    trim: bool,
-) -> Result<'t, (Option<&'s str>, ast::Ast<'s>)> {
+) -> Result<'t, ast::Ast<'s>> {
     let mut items = Vec::new();
 
     while let Ok((rest, item)) = parse_item(source, tokens) {
@@ -100,10 +99,7 @@ fn parse_ast<'s, 't>(
         items.push(item);
     }
 
-    let ast = ast::Ast { items };
-    let (pre, ast) = if trim { trim_ast(ast) } else { (None, ast) };
-
-    Ok((tokens, (pre, ast)))
+    Ok((tokens, ast::Ast { items }))
 }
 
 fn parse_item<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t, ast::Item<'s>> {
@@ -121,7 +117,29 @@ fn parse_item<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'
 
 fn parse_text<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t, ast::Item<'s>> {
     let (rest, span) = exact(source, tokens, Token::Other)?;
-    Ok((rest, ast::Item::Text(&source[span.range()])))
+
+    let mut text = ast::Text {
+        lines: Vec::new(),
+        trailing: "",
+    };
+    for part in source[span.range()].split_inclusive('\n') {
+        let len = part.len();
+        if part.ends_with("\r\n") {
+            text.lines.push(ast::Line {
+                content: &part[..len - 2],
+                new_line: "\r\n",
+            });
+        } else if part.ends_with('\n') {
+            text.lines.push(ast::Line {
+                content: &part[..len - 1],
+                new_line: "\n",
+            });
+        } else {
+            text.trailing = part;
+        }
+    }
+
+    Ok((rest, ast::Item::Text(text)))
 }
 
 fn parse_comment<'s, 't>(
@@ -185,7 +203,7 @@ fn parse_scope<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<
     let (tokens, _) = parse_block(source, tokens, BlockFilter::Equals("scope"))?;
 
     // Body
-    let (tokens, (_, body)) = parse_ast(source, tokens, true)?;
+    let (tokens, body) = parse_ast(source, tokens)?;
 
     // End
     let (tokens, _) = parse_block(source, tokens, BlockFilter::Equals("endscope"))?;
@@ -198,12 +216,19 @@ fn parse_for<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t
     let (tokens, for_) = parse_block(source, tokens, BlockFilter::StartsWith("for"))?;
 
     // Body
-    let (tokens, (pre, body)) = parse_ast(source, tokens, true)?;
+    let (tokens, body) = parse_ast(source, tokens)?;
 
     // End
     let (tokens, _) = parse_block(source, tokens, BlockFilter::Equals("endfor"))?;
 
-    Ok((tokens, ast::Item::For { for_, pre, body }))
+    Ok((
+        tokens,
+        ast::Item::For {
+            for_,
+            pre: None,
+            body,
+        },
+    ))
 }
 
 fn parse_if<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t, ast::Item<'s>> {
@@ -211,7 +236,7 @@ fn parse_if<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t,
     let (tokens, if_) = parse_block(source, tokens, BlockFilter::StartsWith("if"))?;
 
     // Body
-    let (mut tokens, (_, body)) = parse_ast(source, tokens, true)?;
+    let (mut tokens, body) = parse_ast(source, tokens)?;
 
     // Else ifs
     let mut else_ifs = Vec::new();
@@ -250,7 +275,7 @@ fn parse_else_if<'s, 't>(
     let (tokens, else_if) = parse_block(source, tokens, BlockFilter::StartsWith("else if"))?;
 
     // Body
-    let (tokens, (_, body)) = parse_ast(source, tokens, true)?;
+    let (tokens, body) = parse_ast(source, tokens)?;
 
     Ok((tokens, (else_if, body)))
 }
@@ -260,7 +285,7 @@ fn parse_else<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'
     let (tokens, _) = parse_block(source, tokens, BlockFilter::Equals("else"))?;
 
     // Body
-    let (tokens, (_, body)) = parse_ast(source, tokens, true)?;
+    let (tokens, body) = parse_ast(source, tokens)?;
 
     Ok((tokens, body))
 }
@@ -303,7 +328,7 @@ fn parse_where<'s, 't>(
     let arm = where_["where".len()..].trim_start();
 
     // Body
-    let (tokens, (_, body)) = parse_ast(source, tokens, true)?;
+    let (tokens, body) = parse_ast(source, tokens)?;
 
     // End
     let (tokens, _) = parse_block(source, tokens, BlockFilter::Equals("endwhere"))?;
@@ -333,7 +358,7 @@ fn parse_macro<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<
     let params = untuple("|", params.trim(), "|").ok_or_else(error)?;
 
     // Body
-    let (tokens, (_, body)) = parse_ast(source, tokens, true)?;
+    let (tokens, body) = parse_ast(source, tokens)?;
 
     // End
     let (tokens, _) = parse_block(source, tokens, BlockFilter::Equals("endmacro"))?;
@@ -459,33 +484,6 @@ impl<T> ResultExt for Result<'_, T> {
             }
         }
     }
-}
-
-fn trim_ast(mut ast: ast::Ast<'_>) -> (Option<&'_ str>, ast::Ast<'_>) {
-    let mut pre = None;
-
-    if let Some(ast::Item::Text(text)) = ast.items.first_mut() {
-        let text_trimmed = text.trim_start();
-
-        match &text[0..text.len() - text_trimmed.len()] {
-            "" => (),
-            p => pre = Some(p),
-        }
-
-        *text = text_trimmed;
-        if text.is_empty() {
-            ast.items.remove(0);
-        }
-    }
-
-    if let Some(ast::Item::Text(text)) = ast.items.last_mut() {
-        *text = text.trim_end();
-        if text.is_empty() {
-            ast.items.pop().unwrap();
-        }
-    }
-
-    (pre, ast)
 }
 
 fn untuple<'s>(start: &str, t: &'s str, end: &str) -> Option<Vec<&'s str>> {

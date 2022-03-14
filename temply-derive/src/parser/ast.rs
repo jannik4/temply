@@ -5,14 +5,14 @@ pub struct Ast<'s> {
 
 #[derive(Debug)]
 pub enum Item<'s> {
-    Text(&'s str),
+    Text(Text<'s>),
     Comment(&'s str),
     Expr(&'s str, &'s str),
     Let(&'s str),
     Scope(Ast<'s>),
     For {
         for_: &'s str,
-        pre: Option<&'s str>,
+        pre: Option<Text<'s>>,
         body: Ast<'s>,
     },
     If {
@@ -33,4 +33,16 @@ pub enum Item<'s> {
         name: &'s str,
         args: Vec<&'s str>,
     },
+}
+
+#[derive(Debug)]
+pub struct Text<'s> {
+    pub lines: Vec<Line<'s>>,
+    pub trailing: &'s str,
+}
+
+#[derive(Debug)]
+pub struct Line<'s> {
+    pub content: &'s str,
+    pub new_line: &'s str,
 }
