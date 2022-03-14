@@ -52,3 +52,18 @@
 //! "#]
 //! struct MyTemplate;
 //! ```
+//!
+//! # Macro mut env
+//!
+//! ```compile_fail
+//! use temply::Template;
+//!
+//! #[derive(Debug, Template)]
+//! #[template_inline = r#"
+//! {% let mut x = 12; %}
+//! {% macro f || %}
+//!     {% let _ = { x += 1; }; %}
+//! {% endmacro %}
+//! "#]
+//! struct MyTemplate;
+//! ```

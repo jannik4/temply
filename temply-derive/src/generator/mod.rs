@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::parser::ast;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{Data, Generics, Ident};
 
@@ -37,6 +37,7 @@ pub fn generate(
 
         impl #impl_generics ::temply::Template for #name #ty_generics #where_clause {
             fn render(&self, mut __buffer: impl ::std::fmt::Write) -> ::std::fmt::Result {
+                let __buffer = &mut __buffer;
                 #destruct_self
                 #ast
                 Ok(())
@@ -152,6 +153,43 @@ fn generate_item(item: ast::Item<'_>) -> TokenStream {
                 #match_ {
                     #(#cases)*
                 }
+            }
+        }
+        ast::Item::Macro { name, params, body } => {
+            let struct_name = Ident::new(&format!("__closure_{}", name), Span::call_site());
+            let struct_name_var = Ident::new(&format!("__closure_{}_var", name), Span::call_site());
+
+            let params = params
+                .iter()
+                .map(|param| param.parse::<TokenStream>().unwrap())
+                .collect::<Vec<_>>();
+            let generics = (0..params.len())
+                .map(|idx| Ident::new(&format!("T{}", idx), Span::call_site()))
+                .collect::<Vec<_>>();
+
+            let body = generate_ast(body);
+
+            quote! {
+                struct #struct_name<'c, #(#generics),*> {
+                    f: &'c dyn Fn(&#struct_name<'c, #(#generics),*>, &mut dyn ::std::fmt::Write, #(#generics),*) -> ::std::fmt::Result
+                }
+                let #struct_name_var = #struct_name {
+                    f: &|#struct_name_var, __buffer, #(#params),*| {
+                        #body
+                        Ok(())
+                    }
+                };
+            }
+        }
+        ast::Item::Call { name, args } => {
+            let struct_name_var = Ident::new(&format!("__closure_{}_var", name), Span::call_site());
+            let args = args
+                .iter()
+                .map(|arg| arg.parse::<TokenStream>().unwrap())
+                .collect::<Vec<_>>();
+
+            quote! {
+                (#struct_name_var.f)(&#struct_name_var, __buffer, #(#args),*)?;
             }
         }
     }

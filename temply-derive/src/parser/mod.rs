@@ -115,6 +115,8 @@ fn parse_item<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'
         .alt(|| parse_for(source, tokens))
         .alt(|| parse_if(source, tokens))
         .alt(|| parse_match(source, tokens))
+        .alt(|| parse_macro(source, tokens))
+        .alt(|| parse_call(source, tokens))
 }
 
 fn parse_text<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t, ast::Item<'s>> {
@@ -309,6 +311,59 @@ fn parse_where<'s, 't>(
     Ok((tokens, (arm, body)))
 }
 
+fn parse_macro<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t, ast::Item<'s>> {
+    // TODO: Better error
+    let error_span = tokens.get(0).map(|s| s.span);
+    let error = move || {
+        Error::new(
+            error_span.unwrap(),
+            Some(Token::BlockStart),
+            [Expected::Block(BlockFilter::StartsWith("macro"))]
+                .into_iter()
+                .collect(),
+        )
+    };
+
+    // Start
+    let (tokens, macro_) = parse_block(source, tokens, BlockFilter::StartsWith("macro"))?;
+
+    let macro_ = macro_["macro".len()..].trim();
+    let (name, params) = macro_.split_at(macro_.find('|').ok_or_else(error)?);
+    let name = name.trim();
+    let params = untuple("|", params.trim(), "|").ok_or_else(error)?;
+
+    // Body
+    let (tokens, (_, body)) = parse_ast(source, tokens, true)?;
+
+    // End
+    let (tokens, _) = parse_block(source, tokens, BlockFilter::Equals("endmacro"))?;
+
+    Ok((tokens, ast::Item::Macro { name, params, body }))
+}
+
+fn parse_call<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t, ast::Item<'s>> {
+    // TODO: Better error
+    let error_span = tokens.get(0).map(|s| s.span);
+    let error = move || {
+        Error::new(
+            error_span.unwrap(),
+            Some(Token::BlockStart),
+            [Expected::Block(BlockFilter::StartsWith("call"))]
+                .into_iter()
+                .collect(),
+        )
+    };
+
+    let (tokens, call) = parse_block(source, tokens, BlockFilter::StartsWith("call"))?;
+
+    let call = call["call".len()..].trim();
+    let (name, args) = call.split_at(call.find('(').ok_or_else(error)?);
+    let name = name.trim();
+    let args = untuple("(", args.trim(), ")").ok_or_else(error)?;
+
+    Ok((tokens, ast::Item::Call { name, args }))
+}
+
 fn parse_block<'s, 't>(
     source: &'s str,
     tokens: &'t [Spanned<Token>],
@@ -431,4 +486,43 @@ fn trim_ast(mut ast: ast::Ast<'_>) -> (Option<&'_ str>, ast::Ast<'_>) {
     }
 
     (pre, ast)
+}
+
+fn untuple<'s>(start: &str, t: &'s str, end: &str) -> Option<Vec<&'s str>> {
+    let t = if t.starts_with(start) {
+        &t[start.len()..]
+    } else {
+        return None;
+    };
+    let t = if t.ends_with(end) {
+        &t[..t.len() - end.len()]
+    } else {
+        return None;
+    };
+
+    let mut items = Vec::new();
+    let mut balance = (0, 0, 0);
+    let mut pos = 0;
+    for (c_idx, c) in t.char_indices() {
+        match c {
+            '{' => balance.0 += 1,
+            '}' => balance.0 -= 1,
+            '[' => balance.1 += 1,
+            ']' => balance.1 -= 1,
+            '(' => balance.2 += 1,
+            ')' => balance.2 -= 1,
+            ',' if balance == (0, 0, 0) => {
+                items.push(t[pos..c_idx].trim());
+                pos = c_idx + 1;
+            }
+            _ => (),
+        }
+    }
+
+    let rest = t[pos..].trim();
+    if !rest.is_empty() {
+        items.push(rest);
+    }
+
+    Some(items)
 }

@@ -24,4 +24,13 @@ pub enum Item<'s> {
         match_: &'s str,
         wheres: Vec<(&'s str, Ast<'s>)>,
     },
+    Macro {
+        name: &'s str,
+        params: Vec<&'s str>,
+        body: Ast<'s>,
+    },
+    Call {
+        name: &'s str,
+        args: Vec<&'s str>,
+    },
 }
