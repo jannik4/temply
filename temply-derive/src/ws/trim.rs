@@ -1,3 +1,4 @@
+use super::util::inner_asts_mut;
 use crate::parser::ast;
 
 pub fn trim(ast: &mut ast::Ast<'_>) {
@@ -8,42 +9,14 @@ pub fn trim(ast: &mut ast::Ast<'_>) {
 fn trim_items(items: &mut [ast::Item<'_>]) {
     for item in items {
         match item {
-            ast::Item::Text(_) => (),
-            ast::Item::Comment(_) => (),
-            ast::Item::Expr(_, _) => (),
-            ast::Item::Let(_) => (),
-            ast::Item::Scope(body) => {
-                trim_ast(body);
-            }
             ast::Item::For { for_: _, pre, body } => {
                 *pre = trim_ast(body);
             }
-            ast::Item::If {
-                if_,
-                else_ifs,
-                else_,
-            } => {
-                trim_ast(&mut if_.1);
-                for else_if in else_ifs {
-                    trim_ast(&mut else_if.1);
-                }
-                if let Some(else_) = else_ {
-                    trim_ast(else_);
+            _ => {
+                for ast in inner_asts_mut(item) {
+                    trim_ast(ast);
                 }
             }
-            ast::Item::Match { match_: _, wheres } => {
-                for where_ in wheres {
-                    trim_ast(&mut where_.1);
-                }
-            }
-            ast::Item::Macro {
-                name: _,
-                params: _,
-                body,
-            } => {
-                trim_ast(body);
-            }
-            ast::Item::Call { name: _, args: _ } => (),
         }
     }
 }
