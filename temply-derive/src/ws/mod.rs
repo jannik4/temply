@@ -1,4 +1,5 @@
+mod dedent;
 mod trim;
 mod util;
 
-pub use self::trim::trim;
+pub use self::{dedent::dedent, trim::trim};

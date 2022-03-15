@@ -48,3 +48,7 @@ pub trait Template {
 // Compile fail tests
 #[cfg(any(test, doctest))]
 mod compile_fail;
+
+// Internals
+#[doc(hidden)]
+pub mod __intern;

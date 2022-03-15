@@ -386,7 +386,7 @@ fn parse_call<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'
     let name = name.trim();
     let args = untuple("(", args.trim(), ")").ok_or_else(error)?;
 
-    Ok((tokens, ast::Item::Call { name, args }))
+    Ok((tokens, ast::Item::Call { name, args, ind: 0 }))
 }
 
 fn parse_block<'s, 't>(

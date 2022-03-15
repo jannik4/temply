@@ -30,10 +30,10 @@ use syn::{Data, DeriveInput, Generics, Ident, Lit, Meta};
 /// #[template_inline = "Hello {{ name }}!"]
 /// struct MyTemplate<'a> { name: &'a str }
 /// ```
-#[proc_macro_derive(Template, attributes(template, template_inline))]
+#[proc_macro_derive(Template, attributes(template, template_inline, dedent))]
 pub fn derive_template(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse derive
-    let (name, data, generics, source) = parse_derive(input.into());
+    let (name, data, generics, source, dedent) = parse_derive(input.into());
 
     // Get source
     let (source, path) = match source {
@@ -51,6 +51,10 @@ pub fn derive_template(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
         Err(error) => panic!("failed to parse template: {}", error.format(&source)),
     };
 
+    // Dedent and trim
+    if dedent {
+        ws::dedent(&mut ast);
+    }
     ws::trim(&mut ast);
 
     // Generate
@@ -63,7 +67,7 @@ enum Source {
     Inline(String),
 }
 
-fn parse_derive(input: TokenStream) -> (Ident, Data, Generics, Source) {
+fn parse_derive(input: TokenStream) -> (Ident, Data, Generics, Source, bool) {
     let ast = syn::parse2::<DeriveInput>(input).unwrap();
 
     let root_path =
@@ -95,6 +99,10 @@ fn parse_derive(input: TokenStream) -> (Ident, Data, Generics, Source) {
     } else {
         panic!("found zero or more than one template source");
     };
+    let dedent = ast.attrs.iter().any(|attr| match attr.parse_meta() {
+        Ok(Meta::Path(p)) => p.is_ident("dedent"),
+        _ => false,
+    });
 
-    (ast.ident, ast.data, ast.generics, source)
+    (ast.ident, ast.data, ast.generics, source, dedent)
 }

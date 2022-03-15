@@ -187,15 +187,21 @@ fn generate_item(item: ast::Item<'_>) -> TokenStream {
                 };
             }
         }
-        ast::Item::Call { name, args } => {
+        ast::Item::Call { name, args, ind } => {
             let struct_name_var = Ident::new(&format!("__closure_{}_var", name), Span::call_site());
             let args = args
                 .iter()
                 .map(|arg| arg.parse::<TokenStream>().unwrap())
                 .collect::<Vec<_>>();
+            let write = if ind == 0 {
+                quote! { __buffer }
+            } else {
+                let indentation = (0..ind).map(|_| ' ').collect::<String>();
+                quote! { &mut ::temply::__intern::indent::Indenter::new(__buffer, #indentation) }
+            };
 
             quote! {
-                (#struct_name_var.f)(&#struct_name_var, __buffer, #(#args),*)?;
+                (#struct_name_var.f)(&#struct_name_var, #write, #(#args),*)?;
             }
         }
     }
