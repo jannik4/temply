@@ -174,6 +174,16 @@
 //! {% call fact(5) %}
 //! # "#]
 //! # struct MyTemplate;
+//! #
+//! # fn main() {
+//! #     let mut buffer = String::new();
+//! #     MyTemplate.render(&mut buffer).unwrap();
+//! #     assert_eq!(buffer.trim(),
+//!
+//! // Result:
+//! "5 * 4 * 3 * 2 * 1 * 1"
+//! # );
+//! # }
 //! ```
 //!
 //! # Comment
