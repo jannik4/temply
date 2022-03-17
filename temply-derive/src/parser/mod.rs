@@ -94,12 +94,30 @@ fn parse_ast<'s, 't>(
 ) -> Result<'t, ast::Ast<'s>> {
     let mut items = Vec::new();
 
+    let tokens_before = tokens;
+
     while let Ok((rest, item)) = parse_item(source, tokens) {
         tokens = rest;
         items.push(item);
     }
 
-    Ok((tokens, ast::Ast { items }))
+    let items_indent = if tokens_before.len() == tokens.len() {
+        None
+    } else {
+        let tokens_consumed = &tokens_before[0..tokens_before.len() - tokens.len()];
+        let first = tokens_consumed.first().unwrap().span;
+        let last = tokens_consumed.last().unwrap().span;
+        let source_consumed = &source[first.start..last.end];
+        indent(source_consumed)
+    };
+
+    Ok((
+        tokens,
+        ast::Ast {
+            items,
+            items_indent,
+        },
+    ))
 }
 
 fn parse_item<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t, ast::Item<'s>> {
@@ -523,4 +541,30 @@ fn untuple<'s>(start: &str, t: &'s str, end: &str) -> Option<Vec<&'s str>> {
     }
 
     Some(items)
+}
+
+fn indent(s: &str) -> Option<usize> {
+    let mut indent = None;
+
+    let lines = s.lines().collect::<Vec<_>>();
+    for (idx, line) in lines.iter().enumerate() {
+        let is_first = idx == 0;
+        let is_last = idx == lines.len() - 1;
+
+        if line.is_empty() || is_first || (is_last && line.chars().all(|c| c == ' ')) {
+            continue;
+        }
+
+        let line_ind = line.len() - line.trim_start_matches(' ').len();
+        match &mut indent {
+            Some(indent) => {
+                if line_ind < *indent {
+                    *indent = line_ind;
+                }
+            }
+            None => indent = Some(line_ind),
+        }
+    }
+
+    indent
 }

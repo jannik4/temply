@@ -1,4 +1,4 @@
-use super::util::{inner_asts, inner_asts_mut};
+use super::util::inner_asts_mut;
 use crate::parser::ast;
 
 pub fn dedent(ast: &mut ast::Ast<'_>) {
@@ -17,9 +17,9 @@ fn dedent_items(items: &mut [ast::Item<'_>], mut base_indent: usize) {
                     indent_add = true;
                 }
                 if indent_add {
-                    let extra_indent = indent_of_str(text.trailing);
-                    base_indent += extra_indent;
-                    indent_add = extra_indent == text.trailing.len();
+                    let ind = text.trailing.len() - text.trailing.trim_start_matches(' ').len();
+                    base_indent += ind;
+                    indent_add = ind == text.trailing.len();
                 }
             }
             _ => {
@@ -34,11 +34,12 @@ fn dedent_items(items: &mut [ast::Item<'_>], mut base_indent: usize) {
                 };
 
                 for ast in inner_asts_mut(item) {
-                    // Dedent self
-                    let inner_indent = indent(ast, true).unwrap_or(0);
-                    if inner_indent > base_indent {
-                        let dedent = inner_indent - base_indent;
-                        dedent_ast(ast, dedent, true);
+                    // Dedent ast
+                    if let Some(items_indent) = ast.items_indent {
+                        if items_indent > base_indent {
+                            let dedent = items_indent - base_indent;
+                            dedent_ast(ast, dedent);
+                        }
                     }
 
                     // Dedent items of ast
@@ -49,8 +50,14 @@ fn dedent_items(items: &mut [ast::Item<'_>], mut base_indent: usize) {
     }
 }
 
-fn dedent_ast(ast: &mut ast::Ast<'_>, dedent: usize, mut is_at_line_start: bool) {
+fn dedent_ast(ast: &mut ast::Ast<'_>, dedent: usize) {
+    if let Some(items_indent) = &mut ast.items_indent {
+        *items_indent -= dedent;
+    }
+
+    let mut is_at_line_start = false;
     let len = ast.items.len();
+
     for (idx, item) in ast.items.iter_mut().enumerate() {
         let is_last = idx == len - 1;
 
@@ -63,70 +70,19 @@ fn dedent_ast(ast: &mut ast::Ast<'_>, dedent: usize, mut is_at_line_start: bool)
                     is_at_line_start = true;
                 }
 
-                let is_empty = text.trailing.is_empty();
-                if is_at_line_start && !(is_last && text.trailing.chars().all(|c| c == ' ')) {
-                    text.trailing = &text.trailing[dedent..];
-                }
-                if !is_empty {
+                if is_at_line_start && !text.trailing.is_empty() {
+                    if !(is_last && text.trailing.chars().all(|c| c == ' ')) {
+                        text.trailing = &text.trailing[dedent..];
+                    }
                     is_at_line_start = false;
                 }
             }
             _ => {
                 for ast in inner_asts_mut(item) {
-                    dedent_ast(ast, dedent, false);
+                    dedent_ast(ast, dedent);
                 }
                 is_at_line_start = false;
             }
         }
     }
-}
-
-fn indent(ast: &ast::Ast<'_>, mut is_at_line_start: bool) -> Option<usize> {
-    let mut min_indent = None;
-    let mut update = |indent| match (&mut min_indent, indent) {
-        (Some(min_indent), Some(indent)) => {
-            if indent < *min_indent {
-                *min_indent = indent;
-            }
-        }
-        (_, None) => (),
-        (None, _) => min_indent = indent,
-    };
-
-    for (idx, item) in ast.items.iter().enumerate() {
-        let is_last = idx == ast.items.len() - 1;
-
-        match item {
-            ast::Item::Text(text) => {
-                for line in &text.lines {
-                    if is_at_line_start && !line.content.is_empty() {
-                        update(Some(indent_of_str(line.content)))
-                    }
-                    is_at_line_start = true;
-                }
-
-                let is_empty = text.trailing.is_empty();
-                if is_at_line_start && !(is_last && text.trailing.chars().all(|c| c == ' ')) {
-                    update(Some(indent_of_str(text.trailing)))
-                }
-                if !is_empty {
-                    is_at_line_start = false;
-                }
-            }
-            _ => {
-                if is_at_line_start {
-                    return Some(0);
-                }
-                for ast in inner_asts(item) {
-                    update(indent(ast, false));
-                }
-            }
-        }
-    }
-
-    min_indent
-}
-
-fn indent_of_str(s: &str) -> usize {
-    s.len() - s.trim_start_matches(' ').len()
 }

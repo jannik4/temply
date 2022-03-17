@@ -26,7 +26,7 @@ fn test_scope() {
 }
 
 #[test]
-fn test_scope_no_dedent_1() {
+fn test_scope_1() {
     #[derive(Debug, Template)]
     #[dedent]
     #[template_inline = r#"{% scope %}Hello World
@@ -34,11 +34,11 @@ fn test_scope_no_dedent_1() {
 {% endscope %}"#]
     struct MyTemplate;
 
-    assert_render!(MyTemplate, "Hello World\n    1234");
+    assert_render!(MyTemplate, "Hello World\n1234");
 }
 
 #[test]
-fn test_scope_no_dedent_start_1() {
+fn test_scope_start_1() {
     #[derive(Debug, Template)]
     #[dedent]
     #[template_inline = r#"{% scope %}{{ self.0 }}
@@ -46,11 +46,11 @@ fn test_scope_no_dedent_start_1() {
 {% endscope %}"#]
     struct MyTemplate(u32);
 
-    assert_render!(MyTemplate(42), "42\n    1234");
+    assert_render!(MyTemplate(42), "42\n1234");
 }
 
 #[test]
-fn test_scope_no_dedent_start_2() {
+fn test_scope_start_2() {
     #[derive(Debug, Template)]
     #[dedent]
     #[template_inline = r#"{% scope %}{% if self.0 == 42 %}Hello{% endif %}
@@ -58,7 +58,7 @@ fn test_scope_no_dedent_start_2() {
 {% endscope %}"#]
     struct MyTemplate(u32);
 
-    assert_render!(MyTemplate(42), "Hello\n    1234");
+    assert_render!(MyTemplate(42), "Hello\n1234");
 }
 
 #[test]

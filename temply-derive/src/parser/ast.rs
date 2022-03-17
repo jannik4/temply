@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub struct Ast<'s> {
     pub items: Vec<Item<'s>>,
+    pub items_indent: Option<usize>,
 }
 
 #[derive(Debug)]
