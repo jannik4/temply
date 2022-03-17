@@ -15,6 +15,8 @@ use syn::{Data, DeriveInput, Generics, Ident, Lit, Meta};
 ///
 /// The template can be specified with either `#[template]` or `#[template_inline]`.
 ///
+/// Use the dedent option to automatically dedent content in blocks.
+///
 /// # Examples
 ///
 /// ```ignore
