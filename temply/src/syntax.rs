@@ -150,6 +150,32 @@
 //! # struct MyTemplate;
 //! ```
 //!
+//! # Macro and Call
+//!
+//! A macro block is roughly equivalent to a Rust closure. It starts with
+//! `{% macro <NAME> |<PARAMS>| %}` and ends with `{% endmacro %}`. The name has to be a valid Rust
+//! identifier. Macros can only be called after they have been declared. Macros can call themselves
+//! recursively.
+//!
+//! The call block can be used to call a macro. The syntax is `{% call <NAME> (<ARGS>) %}`.
+//!
+//! ```
+//! # use temply::Template;
+//! #
+//! # #[derive(Debug, Template)]
+//! # #[template_inline = r#"
+//! {% macro fact |x| %}
+//!     {% if x == 0 %}
+//!         1
+//!     {% else %}
+//!         {{ x }} * {% call fact(x - 1) %}
+//!     {% endif %}
+//! {% endmacro %}
+//! {% call fact(5) %}
+//! # "#]
+//! # struct MyTemplate;
+//! ```
+//!
 //! # Comment
 //!
 //! A comment is any text delimited by `{#` and `#}`. Comments may be nested. Comments must always
