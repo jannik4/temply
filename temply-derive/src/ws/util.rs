@@ -17,8 +17,12 @@ pub fn inner_asts_mut<'a, 's>(
             for_: _,
             pre: _,
             body,
+            else_,
         } => {
             asts.push(body);
+            if let Some(else_) = else_ {
+                asts.push(else_);
+            }
         }
         ast::Item::If {
             if_,

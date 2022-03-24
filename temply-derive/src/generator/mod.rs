@@ -97,26 +97,30 @@ fn generate_item(item: ast::Item<'_>) -> TokenStream {
             let body = generate_ast(body);
             quote! { { #body } }
         }
-        ast::Item::For { for_, pre, body } => {
+        ast::Item::For {
+            for_,
+            pre,
+            body,
+            else_,
+        } => {
             let for_ = for_.parse::<TokenStream>().unwrap();
+            let pre = pre.map(text_to_string).unwrap_or_default();
             let body = generate_ast(body);
-            match pre {
-                Some(pre_text) => {
-                    let pre_text = text_to_string(pre_text);
-                    quote! {
-                        {
-                            let mut __first = true;
-                            #for_ {
-                                if !__first {
-                                    ::std::write!(__buffer, "{}", #pre_text)?;
-                                }
-                                __first = false;
-                                #body
-                            }
+            let else_ = else_.map(|body| generate_ast(body));
+            quote! {
+                {
+                    let mut __first = true;
+                    #for_ {
+                        if !__first {
+                            ::std::write!(__buffer, "{}", #pre)?;
                         }
+                        __first = false;
+                        #body
+                    }
+                    if __first {
+                        #else_
                     }
                 }
-                None => quote! { #for_ { #body } },
             }
         }
         ast::Item::If {

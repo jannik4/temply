@@ -9,8 +9,16 @@ pub fn trim(ast: &mut ast::Ast<'_>) {
 fn trim_items(items: &mut [ast::Item<'_>]) {
     for item in items {
         match item {
-            ast::Item::For { for_: _, pre, body } => {
+            ast::Item::For {
+                for_: _,
+                pre,
+                body,
+                else_,
+            } => {
                 *pre = trim_ast(body);
+                if let Some(else_) = else_ {
+                    trim_ast(else_);
+                }
             }
             _ => {
                 for ast in inner_asts_mut(item) {

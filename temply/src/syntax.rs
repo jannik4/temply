@@ -87,7 +87,8 @@
 //! # For
 //!
 //! A for block is equivalent to a Rust for loop. It starts with `{% for <PAT> in <EXPR> %}` and
-//! ends with `{% endfor %}`.
+//! ends with `{% endfor %}`. Additionally, an optional `{% else %}` can be inserted. The else block
+//! is executed when the for loop runs for zero iterations.
 //!
 //! ```
 //! # use temply::Template;
@@ -96,6 +97,8 @@
 //! # #[template_inline = r#"
 //! {% for i in (0..3).rev() %}
 //!     {{ i }},
+//! {% else %}
+//!     Empty
 //! {% endfor %}
 //! # "#]
 //! # struct MyTemplate;

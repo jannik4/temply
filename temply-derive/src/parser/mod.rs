@@ -234,7 +234,16 @@ fn parse_for<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t
     let (tokens, for_) = parse_block(source, tokens, BlockFilter::StartsWith("for"))?;
 
     // Body
-    let (tokens, body) = parse_ast(source, tokens)?;
+    let (mut tokens, body) = parse_ast(source, tokens)?;
+
+    // Else
+    let else_ = match parse_else(source, tokens) {
+        Ok((rest, else_)) => {
+            tokens = rest;
+            Some(else_)
+        }
+        Err(_) => None,
+    };
 
     // End
     let (tokens, _) = parse_block(source, tokens, BlockFilter::Equals("endfor"))?;
@@ -245,6 +254,7 @@ fn parse_for<'s, 't>(source: &'s str, tokens: &'t [Spanned<Token>]) -> Result<'t
             for_,
             pre: None,
             body,
+            else_,
         },
     ))
 }

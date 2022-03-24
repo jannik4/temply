@@ -28,3 +28,14 @@ fn test_nested() {
 
     assert_render!(MyTemplate, "[0,0,0,0,],[0,1,2,3,],[0,2,4,6,],[0,3,6,9,],");
 }
+
+#[test]
+fn test_else() {
+    #[derive(Debug, Template)]
+    #[template_inline = "{% for i in 0..self.0 %}{{i * 2}},{% else %}Empty{% endfor %}"]
+    struct MyTemplate(usize);
+
+    assert_render!(MyTemplate(4), "0,2,4,6,");
+    assert_render!(MyTemplate(1), "0,");
+    assert_render!(MyTemplate(0), "Empty");
+}
